@@ -2,6 +2,7 @@ import pygame as pg
 
 from slam.sensor import LiDAR
 from slam.environment import Environment
+from slam.geometry.point import CartesianPoint
 
 environment = Environment(map_file="maps/2.jpg")
 environment.original_map = environment.map.copy()
@@ -25,7 +26,7 @@ while running:
 
         if sensor_on:
             position = pg.mouse.get_pos()
-            sensor.position = position
+            sensor.position = CartesianPoint.from_tuple(position)
             sensor_data = sensor.sense()
             environment.store(sensor_data)
             environment.show()

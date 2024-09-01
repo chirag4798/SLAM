@@ -3,6 +3,7 @@ import numpy as np
 import pygame as pg
 
 from typing import Tuple, List
+from slam.geometry.point import Point, CartesianPoint, RotaryPoint
 
 
 class LiDAR:
@@ -21,54 +22,55 @@ class LiDAR:
         map: pg.surface.Surface,
         uncertainity: Tuple[float] = (0.5, 0.01),
         range: float = 120,
-        resolution: int = 30,
+        resolution: int = 100,
     ):
         # Rounds per second
         self.speed = 4
         self.map = map
         self.range = range
-        self.position = (0, 0)
         self.resolution = resolution
         self.sigma = np.array(uncertainity)
+        self.position = CartesianPoint(x=0, y=0)
         self.map_w, self.map_h = pg.display.get_surface().get_size()
         self.point_cloud = []
 
-    def euclidean_distance(self, point: Tuple[int]) -> float:
-        px = (point[0] - self.position[0]) ** 2
-        py = (point[1] - self.position[1]) ** 2
-        return math.sqrt(px + py)
-
-    def add_uncertainity(self, distance: float, angle: float) -> List[float]:
-        mean = np.array([distance, angle])
+    def add_uncertainity(self, point: RotaryPoint) -> List[float]:
+        mean = np.array([point.distance, point.angle])
         covariance = np.diag(self.sigma**2)
         distance, angle = np.random.multivariate_normal(mean, covariance)
-        distance = max(distance, 0)
-        angle = max(angle, 0)
-        return [distance, angle]
+        uncertain_point = RotaryPoint(
+            distance=max(distance, 0),
+            angle=max(angle, 0),
+        )
+        return point
 
-    def sense(self) -> List[List[float]]:
+    def sense(self) -> List[Tuple[CartesianPoint, CartesianPoint]]:
         data = []
-        x1, y1 = self.position
         for angle in np.linspace(0, 2 * math.pi, self.resolution, False):
-            x2, y2 = (x1 + self.range * math.cos(angle)), (
-                y1 - self.range * math.sin(angle)
-            )
-            for i in range(100):
-                u = i / 100
-                x = int(x2 * u + x1 * (1 - u))
-                y = int(y2 * u + y1 * (1 - u))
 
-                if not ((0 < x < self.map_w) and (0 < y < self.map_h)):
+            point2 = CartesianPoint(
+                x=int(self.position.x + self.range * math.cos(angle)),
+                y=int(self.position.y - self.range * math.sin(angle)),
+            )
+
+            for iter in range(self.resolution):
+                u = iter / 100
+                point3 = CartesianPoint(
+                    x=int(point2.x * u + self.position.x * (1 - u)),
+                    y=int(point2.y * u + self.position.y * (1 - u)),
+                )
+
+                if not ((0 < point3.x < self.map_w) and (0 < point3.y < self.map_h)):
                     continue
 
-                color = tuple(self.map.get_at((x, y)))[:3]
+                color = tuple(self.map.get_at(point3.to_tuple()))[:3]
                 if not (color == self.color_map.get("black")):
                     continue
 
-                distance = self.euclidean_distance((x, y))
-                output = self.add_uncertainity(distance, angle)
-                output.append(self.position)
-                data.append(output)
+                distance = Point.euclidean_distance(point3, self.position)
+                point = RotaryPoint(distance=distance, angle=angle)
+                point = self.add_uncertainity(point).to_cartesian()
+                data.append((point, self.position))
                 break
 
         return data
