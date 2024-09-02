@@ -4,7 +4,7 @@ from slam.sensor import LiDAR
 from slam.environment import Environment
 from slam.geometry.point import CartesianPoint
 
-environment = Environment(map_file="maps/2.jpg")
+environment = Environment(map_file="maps/1.jpg")
 environment.original_map = environment.map.copy()
 sensor = LiDAR(map=environment.original_map)
 environment.map.fill(environment.color_map.get("black"))

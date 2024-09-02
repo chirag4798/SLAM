@@ -1,6 +1,5 @@
 import math
 
-from typing import Annotated
 from abc import ABC, abstractmethod
 from pydantic import BaseModel, confloat
 
